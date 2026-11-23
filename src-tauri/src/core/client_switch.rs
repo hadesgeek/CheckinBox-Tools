@@ -72,7 +72,7 @@ pub struct SwitchOutcome {
 pub fn is_switchable(provider: &str) -> bool {
     matches!(
         provider,
-        "minimax" | "miaoshou" | "qoder" | "workbuddy" | "trae"
+        "minimax" | "miaoshou" | "qoder" | "workbuddy" | "trae" | "doubaowork"
     )
 }
 
@@ -84,6 +84,7 @@ pub fn detect(provider: &str) -> Result<Option<DetectedAccount>> {
         "qoder" => Ok(detect_qoder()),
         "workbuddy" => Ok(detect_workbuddy()),
         "trae" => Ok(detect_trae()),
+        "doubaowork" => Ok(detect_doubaowork()),
         _ => Ok(None),
     }
 }
@@ -194,6 +195,7 @@ pub fn finish_switch(
         "qoder" => switch_qoder(cred, account_id, label, on_progress)?,
         "workbuddy" => switch_workbuddy(cred, account_id, label, on_progress)?,
         "trae" => switch_trae(cred, account_id, label, on_progress)?,
+        "doubaowork" => switch_doubaowork(cred, account_id, label, on_progress)?,
         other => return Err(anyhow!("{other} 不支持切换客户端账号")),
     };
     Ok(SwitchOutcome {
@@ -1105,6 +1107,63 @@ fn switch_workbuddy(
         backup,
         target_file: db_path.to_string_lossy().to_string(),
         client_exe: client_exe.to_string_lossy().to_string(),
+        chat_sync: None,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 豆包工作（DoubaoWork）换号
+// ---------------------------------------------------------------------------
+
+pub fn detect_doubaowork() -> Option<DetectedAccount> {
+    let user_data = crate::providers::doubaowork::find_doubao_user_data()?;
+    let local_state_path = user_data.join("Local State");
+    let state_bytes = std::fs::read(&local_state_path).ok()?;
+    let state_json: Value = serde_json::from_slice(&state_bytes).ok()?;
+    let last_used = state_json["profile"]["last_used"].as_str().unwrap_or("Default");
+    let info = &state_json["profile"]["info_cache"][last_used];
+    let name = info["name"].as_str().unwrap_or(last_used);
+
+    Some(DetectedAccount {
+        account_id: last_used.to_string(),
+        label: name.to_string(),
+    })
+}
+
+fn switch_doubaowork(
+    cred: &Value,
+    _account_id: &str,
+    _label: &str,
+    on_progress: &mut impl FnMut(&str),
+) -> Result<SwitchOutcome> {
+    let user_data = crate::providers::doubaowork::find_doubao_user_data()
+        .ok_or_else(|| anyhow!("未找到豆包工作数据目录"))?;
+    let local_state_path = user_data.join("Local State");
+    let state_bytes = std::fs::read(&local_state_path)?;
+    let mut state_json: Value = serde_json::from_slice(&state_bytes)?;
+
+    let target_profile = cred["profileDir"].as_str().unwrap_or("Default");
+
+    // 备份 Local State
+    let backup_path = local_state_path.with_extension("bak");
+    let _ = std::fs::copy(&local_state_path, &backup_path);
+
+    // 修改 profile.last_used
+    if let Some(profile_obj) = state_json.get_mut("profile").and_then(|p| p.as_object_mut()) {
+        profile_obj.insert("last_used".to_string(), json!(target_profile));
+    }
+
+    let updated_bytes = serde_json::to_vec_pretty(&state_json)?;
+    atomic_write(&local_state_path, &updated_bytes)?;
+
+    on_progress("restarting");
+    let profile_arg = format!("--profile-directory={}", target_profile);
+    let exe = crate::core::launcher::launch_with_args("doubaowork", &[&profile_arg])?;
+
+    Ok(SwitchOutcome {
+        backup: Some(backup_path.to_string_lossy().to_string()),
+        target_file: local_state_path.to_string_lossy().to_string(),
+        client_exe: exe.to_string_lossy().to_string(),
         chat_sync: None,
     })
 }

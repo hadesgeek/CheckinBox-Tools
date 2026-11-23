@@ -4,6 +4,7 @@ import miaoshou from "../assets/agents/miaoshou.png";
 import workbuddy from "../assets/agents/workbuddy.png";
 import zcode from "../assets/agents/zcode.png";
 import trae from "../assets/agents/trae.png";
+import doubaowork from "../assets/agents/doubaowork.png";
 
 /**
  * 各平台的官方图标（从本机客户端安装目录里取的原版，统一 96×96）：
@@ -23,6 +24,7 @@ export const AGENT_ICONS: Record<string, string> = {
   workbuddy,
   zcode,
   trae,
+  doubaowork,
 };
 
 /** 取图标；没有的平台回退到 undefined，由调用方决定兜底显示。 */

@@ -56,6 +56,7 @@ impl AppState {
             qoder.clone(),
             Arc::new(crate::providers::miaoshou::MiaoshouProvider::new()),
             Arc::new(crate::providers::zcode::ZcodeProvider::new()),
+            Arc::new(crate::providers::doubaowork::DoubaoWorkProvider::new()),
         ];
         let (mut store, store_warning) = match AccountStore::load() {
             Ok(store) => (store, None),
@@ -654,7 +655,7 @@ pub async fn overview(state: State<'_, AppState>) -> Result<Overview, String> {
                 docs_url: p.docs_url().to_string(),
                 supports_discovery: matches!(
                     p.id(),
-                    "minimax" | "miaoshou" | "workbuddy" | "zcode" | "qoder" | "trae"
+                    "minimax" | "miaoshou" | "workbuddy" | "zcode" | "qoder" | "trae" | "doubaowork"
                 ),
                 supports_oauth: matches!(p.id(), "qoder" | "minimax" | "workbuddy" | "trae"),
                 oauth_ready: true,
@@ -3271,7 +3272,7 @@ pub fn cli_import_local() -> Result<(), String> {
         let providers: Vec<Arc<dyn Provider>> = state
             .providers
             .iter()
-            .filter(|p| matches!(p.id(), "minimax" | "qoder" | "miaoshou" | "workbuddy" | "zcode" | "trae"))
+            .filter(|p| matches!(p.id(), "minimax" | "qoder" | "miaoshou" | "workbuddy" | "zcode" | "trae" | "doubaowork"))
             .cloned()
             .collect();
 

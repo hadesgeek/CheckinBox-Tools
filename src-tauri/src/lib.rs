@@ -22,9 +22,9 @@ use tauri::Manager;
 use crate::core::config::CloseAction;
 
 pub mod commands;
-mod core;
+pub mod core;
 mod notifications;
-mod providers;
+pub mod providers;
 pub mod selftest;
 mod tray;
 
@@ -128,7 +128,11 @@ pub fn run() {
             app.manage(commands::AppState::new());
             tray::setup(app.handle())?;
             // 正常启动显示主窗口；开机自启带 --silent 时只驻留托盘
-            if !std::env::args().any(|arg| arg == "--silent") {
+            if std::env::args().any(|arg| arg == "--silent") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            } else {
                 tray::show_main_window(app.handle())?;
             }
             let handle = app.handle().clone();

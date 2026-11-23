@@ -5,6 +5,7 @@ description = "聚合 AI 编程工具每日签到"
 authors = ["Skyblueee"]
 edition = "2021"
 rust-version = "1.77"
+default-run = "CheckinBox"
 
 [lib]
 name = "checkinbox_lib"

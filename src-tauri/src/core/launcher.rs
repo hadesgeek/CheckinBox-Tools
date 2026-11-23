@@ -72,6 +72,11 @@ fn spec_of(provider: &str) -> Option<ClientSpec> {
             dir_keywords: &["zcode"],
             legacy_paths: &[r"D:\Program Files\ZCode\ZCode.exe"],
         }),
+        "doubaowork" => Some(ClientSpec {
+            exe_names: &["Doubao.exe", "DoubaoWork.exe"],
+            dir_keywords: &["doubao", "doubaowork"],
+            legacy_paths: &[r"C:\Users\mszl5\AppData\Local\Doubao\Application\Doubao.exe"],
+        }),
         _ => None,
     }
 }
@@ -298,22 +303,33 @@ pub fn data_dir(provider: &str) -> Option<PathBuf> {
 /// 启动后还要**确认它真的活了** —— 客户端起不来时不能报成功，否则用户只看到
 /// 「已切换并重启」却找不到客户端。
 pub fn launch(provider: &str) -> Result<PathBuf> {
+    launch_with_args(provider, &[])
+}
+
+pub fn launch_with_args(provider: &str, extra_args: &[&str]) -> Result<PathBuf> {
     let exe =
         client_exe(provider).ok_or_else(|| anyhow!("没有找到 {} 的客户端可执行文件", provider))?;
 
-    let _ = spawn_hidden("explorer.exe", &[&exe.to_string_lossy()]);
+    if extra_args.is_empty() {
+        let _ = spawn_hidden("explorer.exe", &[&exe.to_string_lossy()]);
+    } else {
+        let mut cmd_args = vec![exe.to_str().unwrap_or_default()];
+        cmd_args.extend_from_slice(extra_args);
+        let _ = spawn_hidden(&exe.to_string_lossy(), extra_args);
+    }
 
     if wait_until_running(provider, std::time::Duration::from_secs(8)) {
         return Ok(exe);
     }
 
     // 没起来：退回直接 spawn，好把退出码如实带出来（explorer 路径拿不到退出码）
-    let mut child = std::process::Command::new(&exe)
+    let mut cmd = std::process::Command::new(&exe);
+    cmd.args(extra_args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .map_err(|e| anyhow!("启动失败：{e}"))?;
+        .stderr(std::process::Stdio::null());
+
+    let mut child = cmd.spawn().map_err(|e| anyhow!("启动失败：{e}"))?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
     while std::time::Instant::now() < deadline {
         std::thread::sleep(std::time::Duration::from_millis(200));

@@ -43,3 +43,4 @@ client_login_backups/
 latest.json
 latest-notes.md
 
+tmp/
